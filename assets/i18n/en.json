@@ -45,6 +45,9 @@
         "widgetSubtitle": "Select an application first.",
         "widgetEmptySubtitle": "No patches selected."
     },
+    "socialMediaCards": {
+        "widgetTitle": "Social Media"
+    },
     "appSelectorView": {
         "searchBarHint": "Search applications",
         "fabButton": "Storage",
@@ -52,12 +55,12 @@
     },
     "patchesSelectorView": {
         "searchBarHint": "Search patches",
-        "fabButton": "Done"
+        "doneButton": "Done"
     },
     "installerView": {
         "widgetTitle": "Installer",
-        "fabInstallButton": "Install",
-        "fabOpenButton": "Open",
+        "installButton": "Install",
+        "openButton": "Open",
         "notificationTitle": "ReVanced Manager is patching",
         "notificationText": "Tap to return to the installer"
     },
