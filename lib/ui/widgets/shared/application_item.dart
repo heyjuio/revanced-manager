@@ -1,18 +1,16 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
-import 'package:google_fonts/google_fonts.dart';
-import 'package:revanced_manager/constants.dart';
-import 'package:revanced_manager/theme.dart';
-import 'package:revanced_manager/ui/widgets/shared/patch_text_button.dart';
+import 'package:revanced_manager/ui/widgets/shared/custom_material_button.dart';
+import 'package:revanced_manager/ui/widgets/shared/custom_card.dart';
 import 'package:expandable/expandable.dart';
 import 'package:timeago/timeago.dart';
 
-class ApplicationItem extends StatelessWidget {
+class ApplicationItem extends StatefulWidget {
   final Uint8List icon;
   final String name;
   final DateTime patchDate;
-  final String changelog;
+  final List<String> changelog;
   final bool isUpdatableApp;
   final Function() onPressed;
 
@@ -27,89 +25,119 @@ class ApplicationItem extends StatelessWidget {
   }) : super(key: key);
 
   @override
+  State<ApplicationItem> createState() => _ApplicationItemState();
+}
+
+class _ApplicationItemState extends State<ApplicationItem>
+    with TickerProviderStateMixin {
+  late AnimationController _animationController;
+
+  @override
+  initState() {
+    super.initState();
+    _animationController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 300),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    return ExpandablePanel(
-      theme: const ExpandableThemeData(
-        hasIcon: false,
-        animationDuration: Duration(milliseconds: 450),
-      ),
-      header: Container(
-        height: 60,
-        decoration: BoxDecoration(
-          borderRadius: const BorderRadius.all(
-            Radius.circular(16),
-          ),
-          color: Theme.of(context).colorScheme.primary,
-        ),
-        padding: const EdgeInsets.symmetric(horizontal: 10.0, vertical: 12.0),
-        child: Row(
-          children: [
-            SizedBox(
-              width: 60,
-              child: Image.memory(
-                icon,
-                height: 39,
-                width: 39,
-              ),
+    ExpandableController expController = ExpandableController();
+    return Container(
+        margin: const EdgeInsets.only(bottom: 16.0),
+        child: CustomCard(
+          onTap: () {
+            expController.toggle();
+            _animationController.isCompleted
+                ? _animationController.reverse()
+                : _animationController.forward();
+          },
+          child: ExpandablePanel(
+            controller: expController,
+            theme: const ExpandableThemeData(
+              inkWellBorderRadius: BorderRadius.all(Radius.circular(16)),
+              tapBodyToCollapse: false,
+              tapBodyToExpand: false,
+              tapHeaderToExpand: false,
+              hasIcon: false,
+              animationDuration: Duration(milliseconds: 450),
             ),
-            const SizedBox(width: 4),
-            SizedBox(
-              width: MediaQuery.of(context).size.width - 250,
+            header: Row(
+              children: <Widget>[
+                SizedBox(
+                  width: 40,
+                  child: Image.memory(widget.icon, height: 40, width: 40),
+                ),
+                const SizedBox(width: 4),
+                Padding(
+                  padding: const EdgeInsets.only(left: 15.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: <Widget>[
+                      Text(
+                        widget.name.length > 12
+                            ? '${widget.name.substring(0, 12)}...'
+                            : widget.name,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                      Text(format(widget.patchDate)),
+                    ],
+                  ),
+                ),
+                const Spacer(),
+                RotationTransition(
+                  turns: Tween(begin: 0.0, end: 0.50)
+                      .animate(_animationController),
+                  child: const Padding(
+                    padding: EdgeInsets.all(8.0),
+                    child: Icon(Icons.arrow_drop_down),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  crossAxisAlignment: CrossAxisAlignment.end,
+                  children: <Widget>[
+                    CustomMaterialButton(
+                      label: widget.isUpdatableApp
+                          ? I18nText('applicationItem.patchButton')
+                          : I18nText('applicationItem.infoButton'),
+                      onPressed: widget.onPressed,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+            collapsed: const SizedBox(),
+            expanded: Padding(
+              padding: const EdgeInsets.only(
+                  top: 16.0, left: 4.0, right: 4.0, bottom: 4.0),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    name,
-                    style: GoogleFonts.roboto(
-                      color: Theme.of(context).colorScheme.secondary,
-                      fontWeight: FontWeight.w600,
+                children: <Widget>[
+                  I18nText(
+                    'applicationItem.changelogLabel',
+                    child: const Text(
+                      '',
+                      style: TextStyle(fontWeight: FontWeight.w700),
                     ),
                   ),
-                  Text(
-                    format(patchDate, locale: 'en_short'),
-                    style: kRobotoTextStyle.copyWith(
-                      color: Theme.of(context).colorScheme.tertiary,
-                    ),
-                  ),
+                  const SizedBox(height: 4),
+                  Text('\u2022 ${widget.changelog.join('\n\u2022 ')}'),
                 ],
               ),
             ),
-            const Spacer(),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8.0),
-              child: PatchTextButton(
-                text: isUpdatableApp
-                    ? 'applicationItem.patchButton'
-                    : 'applicationItem.openButton',
-                onPressed: onPressed,
-                borderColor: isDark
-                    ? const Color(0xff4D5054)
-                    : const Color.fromRGBO(119, 146, 168, 1),
-              ),
-            ),
-          ],
-        ),
-      ),
-      collapsed: const Text(""),
-      expanded: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 8.0, horizontal: 16.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            I18nText(
-              'applicationItem.changelogLabel',
-              child: Text(
-                '',
-                style: kRobotoTextStyle.copyWith(fontWeight: FontWeight.w700),
-              ),
-            ),
-            Text(
-              changelog,
-              style: kRobotoTextStyle,
-            ),
-          ],
-        ),
-      ),
-    );
+          ),
+        ));
   }
 }

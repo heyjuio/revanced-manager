@@ -1,18 +1,18 @@
 import 'package:flutter/material.dart';
-import 'package:github/github.dart';
-import 'package:google_fonts/google_fonts.dart';
+import 'package:flutter_cache_manager/file.dart';
+import 'package:flutter_cache_manager/flutter_cache_manager.dart';
+import 'package:flutter_i18n/flutter_i18n.dart';
+import 'package:revanced_manager/ui/widgets/shared/custom_card.dart';
 import 'package:url_launcher/url_launcher.dart';
 
 class ContributorsCard extends StatefulWidget {
   final String title;
-  final List<Contributor> contributors;
-  final double height;
+  final List<dynamic> contributors;
 
   const ContributorsCard({
     Key? key,
     required this.title,
     required this.contributors,
-    this.height = 200,
   }) : super(key: key);
 
   @override
@@ -24,47 +24,51 @@ class _ContributorsCardState extends State<ContributorsCard> {
   Widget build(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+      children: <Widget>[
         Padding(
-          padding: const EdgeInsets.symmetric(vertical: 4.0, horizontal: 4.0),
-          child: Text(
+          padding: const EdgeInsets.only(bottom: 8.0),
+          child: I18nText(
             widget.title,
-            style: GoogleFonts.poppins(
-              fontSize: 20,
-              fontWeight: FontWeight.w600,
+            child: const Text(
+              '',
+              style: TextStyle(
+                fontSize: 20,
+                fontWeight: FontWeight.w500,
+              ),
             ),
           ),
         ),
-        Container(
-          margin: const EdgeInsets.all(8.0),
-          padding: const EdgeInsets.all(4.0),
-          decoration: BoxDecoration(
-            color: Theme.of(context).colorScheme.tertiary,
-            borderRadius: BorderRadius.circular(8.0),
-          ),
-          height: widget.height,
+        CustomCard(
           child: GridView.builder(
+            shrinkWrap: true,
+            padding: EdgeInsets.zero,
             physics: const NeverScrollableScrollPhysics(),
             gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-              crossAxisCount: 7,
+              crossAxisCount: 6,
               mainAxisSpacing: 8,
               crossAxisSpacing: 8,
             ),
             itemCount: widget.contributors.length,
-            itemBuilder: (context, index) {
-              return ClipRRect(
-                borderRadius: BorderRadius.circular(100),
-                child: GestureDetector(
-                  onTap: () =>
-                      launchUrl(Uri.parse(widget.contributors[index].htmlUrl!)),
-                  child: Image.network(
-                    widget.contributors[index].avatarUrl!,
-                    height: 40,
-                    width: 40,
+            itemBuilder: (context, index) => ClipRRect(
+              borderRadius: BorderRadius.circular(100),
+              child: GestureDetector(
+                onTap: () => launchUrl(
+                  Uri.parse(
+                    widget.contributors[index]['html_url'],
                   ),
                 ),
-              );
-            },
+                child: FutureBuilder<File?>(
+                  future: DefaultCacheManager().getSingleFile(
+                    widget.contributors[index]['avatar_url'],
+                  ),
+                  builder: (context, snapshot) => snapshot.hasData
+                      ? Image.file(snapshot.data!)
+                      : Image.network(
+                          widget.contributors[index]['avatar_url'],
+                        ),
+                ),
+              ),
+            ),
           ),
         ),
       ],

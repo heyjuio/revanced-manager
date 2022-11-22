@@ -1,19 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:revanced_manager/app/app.locator.dart';
-import 'package:revanced_manager/services/github_api.dart';
-import 'package:revanced_manager/constants.dart';
 import 'package:revanced_manager/ui/views/home/home_viewmodel.dart';
-import 'package:revanced_manager/ui/widgets/shared/patch_text_button.dart';
+import 'package:revanced_manager/ui/widgets/shared/custom_material_button.dart';
+import 'package:revanced_manager/ui/widgets/shared/custom_card.dart';
 
 class LatestCommitCard extends StatefulWidget {
   final Function() onPressed;
-  final Color? color;
+
   const LatestCommitCard({
     Key? key,
     required this.onPressed,
-    this.color = const Color(0xff1B222B),
   }) : super(key: key);
 
   @override
@@ -21,35 +18,22 @@ class LatestCommitCard extends StatefulWidget {
 }
 
 class _LatestCommitCardState extends State<LatestCommitCard> {
-  final GithubAPI _githubAPI = GithubAPI();
+  final HomeViewModel model = locator<HomeViewModel>();
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(12),
-        color: widget.color,
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 18, horizontal: 20),
+    return CustomCard(
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
+        children: <Widget>[
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
+            children: <Widget>[
               Row(
-                children: [
-                  I18nText(
-                    'latestCommitCard.patcherLabel',
-                    child: Text(
-                      '',
-                      style: GoogleFonts.roboto(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  FutureBuilder<String>(
-                    future: _githubAPI.latestCommitTime(ghOrg, patcherRepo),
+                children: <Widget>[
+                  I18nText('latestCommitCard.patcherLabel'),
+                  FutureBuilder<String?>(
+                    future: model.getLatestPatcherReleaseTime(),
                     builder: (context, snapshot) => Text(
                       snapshot.hasData && snapshot.data!.isNotEmpty
                           ? FlutterI18n.translate(
@@ -61,38 +45,23 @@ class _LatestCommitCardState extends State<LatestCommitCard> {
                               context,
                               'latestCommitCard.loadingLabel',
                             ),
-                      style: kRobotoTextStyle,
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 4),
               Row(
-                children: [
-                  I18nText(
-                    'latestCommitCard.managerLabel',
-                    child: Text(
-                      '',
-                      style: GoogleFonts.roboto(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-                  FutureBuilder<String>(
-                    future: _githubAPI.latestCommitTime(ghOrg, managerRepo),
-                    builder: (context, snapshot) => Text(
-                      snapshot.hasData && snapshot.data!.isNotEmpty
-                          ? FlutterI18n.translate(
-                              context,
-                              'latestCommitCard.timeagoLabel',
-                              translationParams: {'time': snapshot.data!},
-                            )
-                          : FlutterI18n.translate(
-                              context,
-                              'latestCommitCard.loadingLabel',
-                            ),
-                      style: kRobotoTextStyle,
-                    ),
+                children: <Widget>[
+                  I18nText('latestCommitCard.managerLabel'),
+                  FutureBuilder<String?>(
+                    future: model.getLatestManagerReleaseTime(),
+                    builder: (context, snapshot) =>
+                        snapshot.hasData && snapshot.data!.isNotEmpty
+                            ? I18nText(
+                                'latestCommitCard.timeagoLabel',
+                                translationParams: {'time': snapshot.data!},
+                              )
+                            : I18nText('latestCommitCard.loadingLabel'),
                   ),
                 ],
               ),
@@ -102,17 +71,13 @@ class _LatestCommitCardState extends State<LatestCommitCard> {
             future: locator<HomeViewModel>().hasManagerUpdates(),
             initialData: false,
             builder: (context, snapshot) => Opacity(
-              opacity: snapshot.hasData && snapshot.data! ? 1.0 : 0.5,
-              child: PatchTextButton(
-                text: FlutterI18n.translate(
-                  context,
-                  'latestCommitCard.updateButton',
-                ),
+              opacity: snapshot.hasData && snapshot.data! ? 1.0 : 0.25,
+              child: CustomMaterialButton(
+                isExpanded: false,
+                label: I18nText('latestCommitCard.updateButton'),
                 onPressed: snapshot.hasData && snapshot.data!
                     ? widget.onPressed
                     : () => {},
-                backgroundColor: Theme.of(context).colorScheme.secondary,
-                borderColor: Theme.of(context).colorScheme.secondary,
               ),
             ),
           ),

@@ -1,28 +1,26 @@
 import 'dart:io';
 import 'package:device_apps/device_apps.dart';
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/cupertino.dart';
-import 'package:flutter_i18n/flutter_i18n.dart';
-import 'package:fluttertoast/fluttertoast.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:revanced_manager/app/app.locator.dart';
 import 'package:revanced_manager/models/patched_application.dart';
 import 'package:revanced_manager/services/patcher_api.dart';
+import 'package:revanced_manager/services/toast.dart';
 import 'package:revanced_manager/ui/views/patcher/patcher_viewmodel.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
 import 'package:stacked/stacked.dart';
 
 class AppSelectorViewModel extends BaseViewModel {
   final PatcherAPI _patcherAPI = locator<PatcherAPI>();
+  final Toast _toast = locator<Toast>();
   final List<ApplicationWithIcon> apps = [];
   bool noApps = false;
-  bool _isRooted = false;
 
   Future<void> initialize() async {
     apps.addAll(await _patcherAPI.getFilteredInstalledApps());
     apps.sort((a, b) => a.appName.compareTo(b.appName));
     noApps = apps.isEmpty;
-    SharedPreferences prefs = await SharedPreferences.getInstance();
-    _isRooted = prefs.getBool('isRooted') ?? false;
     notifyListeners();
   }
 
@@ -30,15 +28,13 @@ class AppSelectorViewModel extends BaseViewModel {
     locator<PatcherViewModel>().selectedApp = PatchedApplication(
       name: application.appName,
       packageName: application.packageName,
+      originalPackageName: application.packageName,
       version: application.versionName!,
       apkFilePath: application.apkFilePath,
       icon: application.icon,
       patchDate: DateTime.now(),
-      isRooted: _isRooted,
-      isFromStorage: false,
-      appliedPatches: [],
     );
-    locator<PatcherViewModel>().selectedPatches.clear();
+    locator<PatcherViewModel>().loadLastSelectedPatches();
     locator<PatcherViewModel>().notifyListeners();
   }
 
@@ -50,34 +46,37 @@ class AppSelectorViewModel extends BaseViewModel {
       );
       if (result != null && result.files.single.path != null) {
         File apkFile = File(result.files.single.path!);
-        ApplicationWithIcon? application =
-            await DeviceApps.getAppFromStorage(apkFile.path, true)
-                as ApplicationWithIcon?;
+        List<String> pathSplit = result.files.single.path!.split("/");
+        pathSplit.removeLast();
+        Directory filePickerCacheDir = Directory(pathSplit.join("/"));
+        Iterable<File> deletableFiles =
+            (await filePickerCacheDir.list().toList()).whereType<File>();
+        for (var file in deletableFiles) {
+          if (file.path != apkFile.path && file.path.endsWith(".apk"))
+            file.delete();
+        }
+        ApplicationWithIcon? application = await DeviceApps.getAppFromStorage(
+          apkFile.path,
+          true,
+        ) as ApplicationWithIcon?;
         if (application != null) {
           locator<PatcherViewModel>().selectedApp = PatchedApplication(
             name: application.appName,
             packageName: application.packageName,
+            originalPackageName: application.packageName,
             version: application.versionName!,
             apkFilePath: result.files.single.path!,
             icon: application.icon,
             patchDate: DateTime.now(),
-            isRooted: _isRooted,
             isFromStorage: true,
-            appliedPatches: [],
           );
-          locator<PatcherViewModel>().selectedPatches.clear();
+          locator<PatcherViewModel>().loadLastSelectedPatches();
           locator<PatcherViewModel>().notifyListeners();
         }
       }
-    } on Exception {
-      Fluttertoast.showToast(
-        msg: FlutterI18n.translate(
-          context,
-          'appSelectorView.errorMessage',
-        ),
-        toastLength: Toast.LENGTH_LONG,
-        gravity: ToastGravity.CENTER,
-      );
+    } on Exception catch (e, s) {
+      await Sentry.captureException(e, stackTrace: s);
+      _toast.showBottom('appSelectorView.errorMessage');
     }
   }
 

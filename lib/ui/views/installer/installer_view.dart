@@ -1,8 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:revanced_manager/theme.dart';
 import 'package:revanced_manager/ui/views/installer/installer_viewmodel.dart';
+import 'package:revanced_manager/ui/widgets/shared/custom_material_button.dart';
+import 'package:revanced_manager/ui/widgets/installerView/gradient_progress_indicator.dart';
+import 'package:revanced_manager/ui/widgets/shared/custom_card.dart';
+import 'package:revanced_manager/ui/widgets/shared/custom_popup_menu.dart';
+import 'package:revanced_manager/ui/widgets/shared/custom_sliver_app_bar.dart';
 import 'package:stacked/stacked.dart';
 
 class InstallerView extends StatelessWidget {
@@ -14,180 +18,146 @@ class InstallerView extends StatelessWidget {
       onModelReady: (model) => model.initialize(context),
       viewModelBuilder: () => InstallerViewModel(),
       builder: (context, model, child) => WillPopScope(
-        child: Scaffold(
-          body: CustomScrollView(
-            controller: model.scrollController,
-            slivers: <Widget>[
-              SliverAppBar(
-                pinned: true,
-                snap: false,
-                floating: false,
-                expandedHeight: 100.0,
-                automaticallyImplyLeading: false,
-                backgroundColor: MaterialStateColor.resolveWith(
-                  (states) => states.contains(MaterialState.scrolledUnder)
-                      ? isDark
-                          ? Theme.of(context).colorScheme.primary
-                          : Theme.of(context)
-                              .navigationBarTheme
-                              .backgroundColor!
-                      : Theme.of(context).scaffoldBackgroundColor,
-                ),
-                flexibleSpace: FlexibleSpaceBar(
-                  titlePadding: const EdgeInsets.symmetric(
-                    vertical: 23.0,
-                    horizontal: 20.0,
-                  ),
+        child: SafeArea(
+          top: false,
+          child: Scaffold(
+            body: CustomScrollView(
+              controller: model.scrollController,
+              slivers: <Widget>[
+                CustomSliverAppBar(
                   title: Text(
                     model.headerLogs,
                     style: GoogleFonts.inter(
-                      color: Theme.of(context).textTheme.headline5!.color,
-                      fontWeight: FontWeight.w500,
+                      color: Theme.of(context).textTheme.headline6!.color,
+                    ),
+                  ),
+                  onBackButtonPressed: () => model.onWillPop(context),
+                  actions: <Widget>[
+                    Visibility(
+                      visible: !model.isPatching,
+                      child: CustomPopupMenu(
+                        onSelected: (value) => model.onMenuSelection(value),
+                        children: {
+                          if (!model.hasErrors)
+                            0: I18nText(
+                              'installerView.shareApkMenuOption',
+                              child: const Text(
+                                '',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            1: I18nText(
+                              'installerView.exportApkMenuOption',
+                              child: const Text(
+                                '',
+                                style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                          2: I18nText(
+                            'installerView.shareLogMenuOption',
+                            child: const Text(
+                              '',
+                              style: TextStyle(
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ),
+                        },
+                      ),
+                    ),
+                  ],
+                  bottom: PreferredSize(
+                      preferredSize: const Size(double.infinity, 1.0),
+                      child:
+                          GradientProgressIndicator(progress: model.progress!)),
+                ),
+                SliverPadding(
+                  padding: const EdgeInsets.all(20.0),
+                  sliver: SliverList(
+                    delegate: SliverChildListDelegate.fixed(
+                      <Widget>[
+                        CustomCard(
+                          child: Text(
+                            model.logs,
+                            style: GoogleFonts.jetBrainsMono(
+                              fontSize: 13,
+                              height: 1.5,
+                            ),
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                 ),
-              ),
-              SliverPadding(
-                padding: const EdgeInsets.symmetric(horizontal: 20.0),
-                sliver: SliverList(
-                  delegate: SliverChildListDelegate.fixed(
-                    <Widget>[
-                      Padding(
-                        padding: const EdgeInsets.only(
-                          left: 4.0,
-                          top: 0.0,
-                          right: 4.0,
-                          bottom: 16.0,
-                        ),
-                        child: LinearProgressIndicator(
-                          color: Theme.of(context).colorScheme.secondary,
-                          backgroundColor: Colors.white,
-                          value: model.progress,
-                        ),
-                      ),
-                      Container(
-                        padding: const EdgeInsets.all(12.0),
-                        width: double.infinity,
-                        decoration: BoxDecoration(
-                          color: Theme.of(context).colorScheme.primary,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Text(
-                          model.logs,
-                          style: GoogleFonts.jetBrainsMono(
-                            fontSize: 13,
-                            height: 1.5,
-                          ),
-                        ),
-                      ),
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            vertical: 16, horizontal: 0),
-                        child: Visibility(
-                          visible: !model.isPatching,
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.end,
-                            children: [
-                              //TODO: Move to separate file
-                              TextButton(
-                                style: ButtonStyle(
-                                  padding: MaterialStateProperty.all(
-                                    const EdgeInsets.symmetric(
-                                      horizontal: 20,
-                                      vertical: 12,
-                                    ),
-                                  ),
-                                  shape: MaterialStateProperty.all(
-                                    RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(100),
-                                      side: BorderSide(
-                                        width: 1,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .secondary,
-                                      ),
-                                    ),
-                                  ),
-                                  side: MaterialStateProperty.all(
-                                    BorderSide(
-                                      color: Theme.of(context)
-                                          .iconTheme
-                                          .color!
-                                          .withOpacity(0.4),
-                                      width: 1,
-                                    ),
-                                  ),
-                                  backgroundColor: MaterialStateProperty.all(
-                                    isDark
-                                        ? Theme.of(context)
-                                            .colorScheme
-                                            .background
-                                        : Colors.white,
-                                  ),
-                                  foregroundColor: MaterialStateProperty.all(
-                                    Theme.of(context).colorScheme.secondary,
-                                  ),
-                                ),
-                                onPressed: () => model.shareResult(),
-                                child: I18nText("Share file"),
-                              ),
-                              const SizedBox(width: 16),
-                              TextButton(
+                SliverFillRemaining(
+                  hasScrollBody: false,
+                  child: Align(
+                    alignment: Alignment.bottomCenter,
+                    child: Visibility(
+                      visible: !model.isPatching && !model.hasErrors,
+                      child: Padding(
+                        padding: const EdgeInsets.all(20.0).copyWith(top: 0.0),
+                        child: Row(
+                          mainAxisAlignment: MainAxisAlignment.end,
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: <Widget>[
+                            Visibility(
+                              visible: model.isInstalled,
+                              child: CustomMaterialButton(
+                                label: I18nText('installerView.openButton'),
+                                isExpanded: true,
                                 onPressed: () {
-                                  if (model.isInstalled) {
-                                    model.openApp();
-                                    Navigator.of(context).pop();
-                                  } else {
-                                    model.installResult();
-                                  }
+                                  model.openApp();
+                                  model.cleanPatcher();
+                                  Navigator.of(context).pop();
                                 },
-                                style: ButtonStyle(
-                                  padding: MaterialStateProperty.all(
-                                    const EdgeInsets.symmetric(
-                                      horizontal: 24,
-                                      vertical: 8,
-                                    ),
-                                  ),
-                                  shape: MaterialStateProperty.all(
-                                    RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(100),
-                                      side: BorderSide(
-                                        width: 1,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .secondary,
-                                      ),
-                                    ),
-                                  ),
-                                  backgroundColor: MaterialStateProperty.all(
-                                    Theme.of(context).colorScheme.secondary,
-                                  ),
-                                  foregroundColor: MaterialStateProperty.all(
-                                    Theme.of(context).colorScheme.background,
-                                  ),
-                                ),
-                                child: I18nText(model.isInstalled
-                                    ? 'installerView.openButton'
-                                    : 'installerView.installButton'),
                               ),
-                            ],
-                          ),
+                            ),
+                            Visibility(
+                              visible: !model.isInstalled && model.isRooted,
+                              child: CustomMaterialButton(
+                                isFilled: false,
+                                label:
+                                    I18nText('installerView.installRootButton'),
+                                isExpanded: true,
+                                onPressed: () => model.installResult(
+                                  context,
+                                  true,
+                                ),
+                              ),
+                            ),
+                            Visibility(
+                              visible: !model.isInstalled,
+                              child: const SizedBox(
+                                width: 16,
+                              ),
+                            ),
+                            Visibility(
+                              visible: !model.isInstalled,
+                              child: CustomMaterialButton(
+                                label: I18nText('installerView.installButton'),
+                                isExpanded: true,
+                                onPressed: () => model.installResult(
+                                  context,
+                                  false,
+                                ),
+                              ),
+                            ),
+                          ],
                         ),
                       ),
-                    ],
+                    ),
                   ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
-        onWillPop: () async {
-          if (!model.isPatching) {
-            model.cleanPatcher();
-            Navigator.of(context).pop();
-          }
-          return false;
-        },
+        onWillPop: () => model.onWillPop(context),
       ),
     );
   }

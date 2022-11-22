@@ -1,24 +1,57 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
-// ignore: depend_on_referenced_packages
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:revanced_manager/app/app.locator.dart';
-import 'package:revanced_manager/app/app.router.dart';
-import 'package:revanced_manager/main_viewmodel.dart';
+import 'package:revanced_manager/services/crowdin_api.dart';
+import 'package:revanced_manager/services/github_api.dart';
 import 'package:revanced_manager/services/manager_api.dart';
-import 'package:revanced_manager/theme.dart';
-import 'package:revanced_manager/ui/views/home/home_view.dart';
-import 'package:revanced_manager/ui/views/patcher/patcher_view.dart';
-import 'package:revanced_manager/ui/views/root_checker/root_checker_view.dart';
-import 'package:revanced_manager/ui/views/settings/settings_view.dart';
-import 'package:stacked/stacked.dart';
-import 'package:stacked_services/stacked_services.dart';
+import 'package:revanced_manager/services/patcher_api.dart';
+import 'package:revanced_manager/services/revanced_api.dart';
+import 'package:revanced_manager/ui/theme/dynamic_theme_builder.dart';
+import 'package:revanced_manager/ui/views/navigation/navigation_view.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:stacked_themes/stacked_themes.dart';
+import 'package:sentry_flutter/sentry_flutter.dart';
+import 'package:timezone/data/latest.dart' as tz;
 
+late SharedPreferences prefs;
 Future main() async {
   await ThemeManager.initialise();
   await setupLocator();
   WidgetsFlutterBinding.ensureInitialized();
+  await locator<ManagerAPI>().initialize();
+  String apiUrl = locator<ManagerAPI>().getApiUrl();
+  await locator<RevancedAPI>().initialize(apiUrl);
+  await locator<CrowdinAPI>().initialize();
+  // bool isSentryEnabled = locator<ManagerAPI>().isSentryEnabled();
+  locator<GithubAPI>().initialize();
+  await locator<PatcherAPI>().initialize();
+  tz.initializeTimeZones();
+  prefs = await SharedPreferences.getInstance();
+
+  // Remove this section if you are building from source and don't have sentry configured
+  // await SentryFlutter.init(
+  //   (options) {
+  //     options
+  //       ..dsn = isSentryEnabled ? '' : ''
+  //       ..environment = 'alpha'
+  //       ..release = '0.1'
+  //       ..tracesSampleRate = 1.0
+  //       ..anrEnabled = true
+  //       ..enableOutOfMemoryTracking = true
+  //       ..sampleRate = isSentryEnabled ? 1.0 : 0.0
+  //       ..beforeSend = (event, hint) {
+  //         if (isSentryEnabled) {
+  //           return event;
+  //         } else {
+  //           return null;
+  //         }
+  //       } as BeforeSendCallback?;
+  //   },
+  //   appRunner: () {
+  //     runApp(const MyApp());
+  //   },
+  // );
   runApp(const MyApp());
 }
 
@@ -27,110 +60,29 @@ class MyApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ThemeBuilder(
-      defaultThemeMode: ThemeMode.dark,
-      darkTheme: darkTheme,
-      lightTheme: lightTheme,
-      builder: (context, regularTheme, darkTheme, themeMode) => MaterialApp(
-        debugShowCheckedModeBanner: false,
-        title: 'ReVanced Manager',
-        theme: lightTheme,
-        darkTheme: darkTheme,
-        themeMode: themeMode,
-        navigatorKey: StackedService.navigatorKey,
-        onGenerateRoute: StackedRouter().onGenerateRoute,
-        home: FutureBuilder<Widget>(
-          future: _init(),
-          builder: (context, snapshot) {
-            if (snapshot.hasData) {
-              return snapshot.data!;
-            } else {
-              return Center(
-                child: CircularProgressIndicator(
-                  color: Theme.of(context).colorScheme.secondary,
-                ),
-              );
-            }
+    String rawLocale = prefs.getString('language') ?? 'en_US';
+    String replaceLocale = rawLocale.replaceAll('_', '-');
+    List<String> localeList = replaceLocale.split('-');
+    Locale locale = Locale(localeList[0], localeList[1]);
+
+    return DynamicThemeBuilder(
+      title: 'ReVanced Manager',
+      home: const NavigationView(),
+      localizationsDelegates: [
+        FlutterI18nDelegate(
+          translationLoader: FileTranslationLoader(
+            forcedLocale: locale,
+            basePath: 'assets/i18n',
+            useCountryCode: true,
+          ),
+          missingTranslationHandler: (key, locale) {
+            print(
+                '--> Missing translation: key: $key, languageCode: ${locale?.languageCode}');
           },
         ),
-        localizationsDelegates: [
-          FlutterI18nDelegate(
-            translationLoader: FileTranslationLoader(
-              fallbackFile: 'en',
-              basePath: 'assets/i18n',
-            ),
-          ),
-          GlobalMaterialLocalizations.delegate,
-          GlobalWidgetsLocalizations.delegate
-        ],
-      ),
+        GlobalMaterialLocalizations.delegate,
+        GlobalWidgetsLocalizations.delegate
+      ],
     );
-  }
-
-  Future<Widget> _init() async {
-    await locator<ManagerAPI>().initialize();
-    bool? isRooted = locator<ManagerAPI>().isRooted();
-    if (isRooted != null) {
-      return const Navigation();
-    }
-    return const RootCheckerView();
-  }
-}
-
-class Navigation extends StatelessWidget {
-  const Navigation({
-    Key? key,
-  }) : super(key: key);
-
-  @override
-  Widget build(BuildContext context) {
-    return ViewModelBuilder<MainViewModel>.reactive(
-      viewModelBuilder: () => locator<MainViewModel>(),
-      builder: (context, model, child) => Scaffold(
-        body: getViewForIndex(model.currentIndex),
-        bottomNavigationBar: NavigationBar(
-          onDestinationSelected: model.setIndex,
-          selectedIndex: model.currentIndex,
-          destinations: <Widget>[
-            NavigationDestination(
-              icon: const Icon(
-                Icons.dashboard,
-              ),
-              label: FlutterI18n.translate(
-                context,
-                'main.dashboardTab',
-              ),
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.build),
-              label: FlutterI18n.translate(
-                context,
-                'main.patcherTab',
-              ),
-            ),
-            NavigationDestination(
-              icon: const Icon(Icons.settings),
-              label: FlutterI18n.translate(
-                context,
-                'main.settingsTab',
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget getViewForIndex(int index) {
-    switch (index) {
-      case 0:
-        return const HomeView();
-      case 1:
-        return const PatcherView();
-      case 2:
-        return SettingsView();
-      default:
-        return const HomeView();
-    }
   }
 }

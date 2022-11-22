@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_i18n/flutter_i18n.dart';
-import 'package:revanced_manager/theme.dart';
 import 'package:revanced_manager/ui/widgets/appSelectorView/installed_app_item.dart';
 import 'package:revanced_manager/ui/widgets/shared/search_bar.dart';
-import 'package:stacked/stacked.dart';
+import 'package:revanced_manager/ui/widgets/appSelectorView/app_skeleton_loader.dart';
+import 'package:stacked/stacked.dart' hide SkeletonLoader;
 import 'package:revanced_manager/ui/views/app_selector/app_selector_viewmodel.dart';
 
 class AppSelectorView extends StatefulWidget {
@@ -22,71 +22,86 @@ class _AppSelectorViewState extends State<AppSelectorView> {
       onModelReady: (model) => model.initialize(),
       viewModelBuilder: () => AppSelectorViewModel(),
       builder: (context, model, child) => Scaffold(
+        resizeToAvoidBottomInset: false,
         floatingActionButton: FloatingActionButton.extended(
+          label: I18nText('appSelectorView.storageButton'),
+          icon: const Icon(Icons.sd_storage),
           onPressed: () {
             model.selectAppFromStorage(context);
             Navigator.of(context).pop();
           },
-          label: I18nText('appSelectorView.fabButton'),
-          icon: const Icon(Icons.sd_storage),
-          backgroundColor: Theme.of(context).colorScheme.secondary,
-          foregroundColor: Colors.white,
         ),
-        body: SafeArea(
-          child: Padding(
-            padding:
-                const EdgeInsets.symmetric(vertical: 4.0, horizontal: 12.0),
-            child: model.noApps
-                ? Center(
-                    child: I18nText('appSelectorCard.noAppsLabel'),
-                  )
-                : model.apps.isEmpty
-                    ? Center(
-                        child: CircularProgressIndicator(
-                          color: Theme.of(context).colorScheme.secondary,
+        body: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              floating: true,
+              snap: false,
+              title: I18nText(
+                'appSelectorView.viewTitle',
+                child: Text(
+                  '',
+                  style: TextStyle(
+                    color: Theme.of(context).textTheme.headline6!.color,
+                  ),
+                ),
+              ),
+              leading: IconButton(
+                icon: Icon(
+                  Icons.arrow_back,
+                  color: Theme.of(context).textTheme.headline6!.color,
+                ),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+              bottom: PreferredSize(
+                preferredSize: const Size.fromHeight(64.0),
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(
+                    vertical: 8.0,
+                    horizontal: 12.0,
+                  ),
+                  child: SearchBar(
+                    showSelectIcon: false,
+                    hintText: FlutterI18n.translate(
+                      context,
+                      'appSelectorView.searchBarHint',
+                    ),
+                    onQueryChanged: (searchQuery) {
+                      setState(() {
+                        _query = searchQuery;
+                      });
+                    },
+                  ),
+                ),
+              ),
+            ),
+            SliverToBoxAdapter(
+              child: model.noApps
+                  ? Center(
+                      child: I18nText('appSelectorCard.noAppsLabel'),
+                    )
+                  : model.apps.isEmpty
+                      ? const AppSkeletonLoader()
+                      : Padding(
+                          padding: const EdgeInsets.symmetric(horizontal: 12.0)
+                              .copyWith(bottom: 80),
+                          child: Column(
+                            children: model
+                                .getFilteredApps(_query)
+                                .map((app) => InstalledAppItem(
+                                      name: app.appName,
+                                      pkgName: app.packageName,
+                                      icon: app.icon,
+                                      onTap: () {
+                                        model.selectApp(app);
+                                        Navigator.of(context).pop();
+                                      },
+                                    ))
+                                .toList(),
+                          ),
                         ),
-                      )
-                    : Column(
-                        children: [
-                          SearchBar(
-                            showSelectIcon: false,
-                            fillColor: isDark
-                                ? const Color(0xff1B222B)
-                                : Colors.grey[200],
-                            hintText: FlutterI18n.translate(
-                              context,
-                              'appSelectorView.searchBarHint',
-                            ),
-                            hintTextColor:
-                                Theme.of(context).colorScheme.tertiary,
-                            onQueryChanged: (searchQuery) {
-                              setState(() {
-                                _query = searchQuery;
-                              });
-                            },
-                          ),
-                          const SizedBox(height: 12),
-                          Expanded(
-                            child: ListView(
-                              children: model
-                                  .getFilteredApps(_query)
-                                  .map((app) => InkWell(
-                                        onTap: () {
-                                          model.selectApp(app);
-                                          Navigator.of(context).pop();
-                                        },
-                                        child: InstalledAppItem(
-                                          name: app.appName,
-                                          pkgName: app.packageName,
-                                          icon: app.icon,
-                                        ),
-                                      ))
-                                  .toList(),
-                            ),
-                          ),
-                        ],
-                      ),
-          ),
+            ),
+          ],
         ),
       ),
     );
